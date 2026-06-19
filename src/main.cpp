@@ -23,9 +23,9 @@ constexpr int BASE_SPEED = 80;
 constexpr int SEARCH_SPEED = 45;
 
 // PID gains. Start conservative; tune Kp first, then Kd, then Ki only if needed.
-constexpr float KP = 2.05;
-constexpr float KI = 0;
-constexpr float KD = 4.0;
+constexpr float KP = 3;
+constexpr float KI = 0.0;
+constexpr float KD = 0.0;
 
 constexpr uint32_t CALIBRATION_TIME_MS = 2500;
 constexpr int MIN_SENSOR_RANGE = 30;
@@ -127,6 +127,8 @@ void setup() {
 
   stopDrive();
   calibrateSensors();
+  Serial.begin(9600);
+  delay(2000);
 }
 
 void loop() {
