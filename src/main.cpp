@@ -16,7 +16,7 @@ constexpr int BASE_SPEED = 230;
 constexpr int SEARCH_SPEED = 210;
 
 // PID Tuning
-constexpr float KP = 0.08;
+constexpr float KP = 0.3;
 constexpr float KI = 0.0;
 constexpr float KD = 1.8;
 
@@ -92,6 +92,7 @@ void calibrateSensors() {
 
   qtr.resetCalibration();
 
+  
   const int SWEEP_SPEED = 80;
   const int SWEEP_TIME = 1000;
   unsigned long startTime;
