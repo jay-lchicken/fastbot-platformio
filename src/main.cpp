@@ -12,13 +12,13 @@ constexpr uint8_t RIGHT_MOTOR_FORWARD_PWM = 1;
 constexpr uint8_t RIGHT_MOTOR_REVERSE_PWM = 33;
 
 constexpr int MOTOR_PWM_MAX = 255;
-constexpr int BASE_SPEED = 255;
+constexpr int BASE_SPEED = 200;
 constexpr int SEARCH_SPEED = 235;
 
 // PID Tuning
-constexpr float KP = 0.36;
-constexpr float KI = 0.00;
-constexpr float KD = 2.0;
+constexpr float KP = 0.1;
+constexpr float KI = 0.008;
+constexpr float KD = 2;
 
 constexpr int LINE_CENTER = (SENSOR_COUNT - 1) * 1000 / 2;
 constexpr int LINE_PRESENT_SUM_THRESHOLD = 600;
