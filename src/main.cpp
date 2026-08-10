@@ -16,7 +16,7 @@ constexpr int BASE_SPEED = 255;
 constexpr int SEARCH_SPEED = 235;
 
 // PID Tuning
-constexpr float KP = 0.35;
+constexpr float KP = 0.36;
 constexpr float KI = 0.00;
 constexpr float KD = 2.0;
 
@@ -92,7 +92,7 @@ void calibrateSensors() {
 
   qtr.resetCalibration();
 
-  
+
   const int SWEEP_SPEED = 80;
   const int SWEEP_TIME = 1000;
   unsigned long startTime;
@@ -322,6 +322,8 @@ void loop() {
   }
 
   // PID Calculations
+  // --- PID Calculations ---
+  // --- PID Calculations ---
   int error = position - LINE_CENTER;
 
   if (error > 0) lastLineWasRight = true;
@@ -340,24 +342,35 @@ void loop() {
   float derivative = filteredError - lastError;
   lastError = filteredError;
 
-  float correction = (KP * filteredError) + (KI * integral) + (KD * derivative);
-
-  if (correction > MAX_CORRECTION) correction = MAX_CORRECTION;
-  if (correction < -MAX_CORRECTION) correction = -MAX_CORRECTION;
-
-  // --- THE FIX: DYNAMIC FORWARD CREEP ---
-  int currentBaseSpeed = BASE_SPEED;
+  // --- DYNAMIC KP MULTIPLIER (HELLA SHARP TURN) ---
   int absError = abs(error);
+  float kpm = 1.0f; // Default multiplier for straight lines
 
-  // Maximum possible error is 7000.
-  // If the error is larger than 1000, start reducing the forward speed.
-  if (absError > 1000) {
-    // Map the error (1000 to 7000) to a forward speed (BASE_SPEED down to 50).
-    // The larger the error, the closer the forward speed gets to 50.
-    currentBaseSpeed = map(absError, 1000, 7000, BASE_SPEED, 50);
+  if (absError > 500) {
+    // Ramp up to a massive 5.0x multiplier instantly when the line leaves the center.
+    // This violently snaps the motors to max differential.
+    long kpm_mapped = map(absError, 500, 7000, 10, 50);
+    kpm_mapped = constrain(kpm_mapped, 10, 50);
+    kpm = kpm_mapped / 10.0f;
+  }
 
-    // Ensure it doesn't accidentally do something weird if it exceeds bounds
-    currentBaseSpeed = constrain(currentBaseSpeed, 50, BASE_SPEED);
+  float currentKP = KP * kpm;
+  float correction = (currentKP * filteredError) + (KI * integral) + (KD * derivative);
+
+  // Boost max correction buffer so the math is allowed to hit full 255/-255 output
+  if (correction > 1000) correction = 1000;
+  if (correction < -1000) correction = -1000;
+
+  // --- DYNAMIC FORWARD CREEP (REVERSE PIVOT) ---
+  int currentBaseSpeed = BASE_SPEED;
+
+  if (absError > 500) {
+    // The secret to a perfectly tight hairpin: Active Reversing.
+    // This maps the base speed from 255 down to -100!
+    // Instead of drifting forward, the robot physically yanks its center of gravity
+    // backward while spinning on a dime, making it physically impossible to swing wide.
+    currentBaseSpeed = map(absError, 500, 7000, BASE_SPEED, -100);
+    currentBaseSpeed = constrain(currentBaseSpeed, -100, BASE_SPEED);
   }
 
   int leftSpeed = currentBaseSpeed + correction;
