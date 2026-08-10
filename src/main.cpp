@@ -12,13 +12,13 @@ constexpr uint8_t RIGHT_MOTOR_FORWARD_PWM = 1;
 constexpr uint8_t RIGHT_MOTOR_REVERSE_PWM = 33;
 
 constexpr int MOTOR_PWM_MAX = 255;
-constexpr int BASE_SPEED = 200;
+constexpr int BASE_SPEED = 230;
 constexpr int SEARCH_SPEED = 235;
 
 // PID Tuning
-constexpr float KP = 0.1;
-constexpr float KI = 0.008;
-constexpr float KD = 2;
+constexpr float KP = 0.17;
+constexpr float KI = 0.0045;
+constexpr float KD = 1.3;
 
 constexpr int LINE_CENTER = (SENSOR_COUNT - 1) * 1000 / 2;
 constexpr int LINE_PRESENT_SUM_THRESHOLD = 600;
@@ -163,8 +163,8 @@ void executeJunctionTurn(int direction) {
   delay(20); // 30ms is usually enough to stop dead at 250 speed.
 
   // 2. THE CONTROLLED CREEP: Now that we aren't sliding, move forward slowly to align wheels
-  setMotors(150, 150);
-  delay(30); // Adjust this slightly up or down to center the wheels perfectly over the intersection
+  setMotors(210, 210);
+  delay(15); // Adjust this slightly up or down to center the wheels perfectly over the intersection
 
   if (direction == 0) { // Turn Left
     setMotors(-TURN_SPEED, TURN_SPEED);
@@ -275,7 +275,7 @@ void loop() {
 
   // 2. A normal curve covers ~4-6 sensors. A junction covers a wide horizontal band.
   // Adjust this threshold (e.g., 7, 8, or 9) depending on your line thickness.
-  bool isJunctionMass = (activeSensorCount >= 12);
+  bool isJunctionMass = (activeSensorCount >= 10);
 
   // To avoid false positives on corners, a junction requires the extremes AND the center to see the line
   bool leftExtreme = (sensorValues[0] > JUNCTION_THRESHOLD) && (sensorValues[1] > JUNCTION_THRESHOLD) && (sensorValues[2] > JUNCTION_THRESHOLD);
