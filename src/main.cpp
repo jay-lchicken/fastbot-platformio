@@ -16,8 +16,8 @@ constexpr int BASE_SPEED = 230;
 constexpr int SEARCH_SPEED = 235;
 
 // PID Tuning
-constexpr float KP = 0.17;
-constexpr float KI = 0.0045;
+constexpr float KP = 0.23;
+constexpr float KI = 0.005;
 constexpr float KD = 1.3;
 
 constexpr int LINE_CENTER = (SENSOR_COUNT - 1) * 1000 / 2;
@@ -151,7 +151,7 @@ void loadCalibration() {
 
 // OPTIMIZATION: Decouple this from BASE_SPEED.
 // 150 is plenty fast for a pivot, but slow enough that sensors won't skip the line.
-constexpr int TURN_SPEED = 180;
+constexpr int TURN_SPEED = 220;
 
 void executeJunctionTurn(int direction) {
   if (direction == 2) {
@@ -275,7 +275,7 @@ void loop() {
 
   // 2. A normal curve covers ~4-6 sensors. A junction covers a wide horizontal band.
   // Adjust this threshold (e.g., 7, 8, or 9) depending on your line thickness.
-  bool isJunctionMass = (activeSensorCount >= 10);
+  bool isJunctionMass = (activeSensorCount >= 12);
 
   // To avoid false positives on corners, a junction requires the extremes AND the center to see the line
   bool leftExtreme = (sensorValues[0] > JUNCTION_THRESHOLD) && (sensorValues[1] > JUNCTION_THRESHOLD) && (sensorValues[2] > JUNCTION_THRESHOLD);
@@ -346,11 +346,11 @@ void loop() {
   int absError = abs(error);
   float kpm = 1.0f; // Default multiplier for straight lines
 
-  if (absError > 500) {
+  if (absError > 1500) {
     // Ramp up to a massive 5.0x multiplier instantly when the line leaves the center.
     // This violently snaps the motors to max differential.
-    long kpm_mapped = map(absError, 500, 7000, 10, 50);
-    kpm_mapped = constrain(kpm_mapped, 10, 50);
+    long kpm_mapped = map(absError, 500, 7000, 10, 40);
+    kpm_mapped = constrain(kpm_mapped, 10, 40);
     kpm = kpm_mapped / 10.0f;
   }
 
