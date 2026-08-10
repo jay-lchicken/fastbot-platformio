@@ -18,7 +18,7 @@ constexpr int SEARCH_SPEED = 235;
 // PID Tuning
 constexpr float KP = 0.12;
 constexpr float KI = 0.001;
-constexpr float KD = 1;
+constexpr float KD = 1.2;
 
 constexpr int LINE_CENTER = (SENSOR_COUNT - 1) * 1000 / 2;
 constexpr int LINE_PRESENT_SUM_THRESHOLD = 600;
@@ -35,7 +35,7 @@ constexpr int CAL_DATA_SIZE = 1 + SENSOR_COUNT * sizeof(uint16_t) * 2;
 
 // --- JUNCTION CONFIGURATION ---
 // 0 = Turn Left, 1 = Turn Right, 2 = Go Straight
-constexpr int JUNCTION_1_DIR = 0;
+constexpr int JUNCTION_1_DIR = 1;
 constexpr int JUNCTION_2_DIR = 1;
 constexpr int JUNCTION_3_DIR = 2;
 
@@ -275,7 +275,7 @@ void loop() {
 
   // 2. A normal curve covers ~4-6 sensors. A junction covers a wide horizontal band.
   // Adjust this threshold (e.g., 7, 8, or 9) depending on your line thickness.
-  bool isJunctionMass = (activeSensorCount >= 8);
+  bool isJunctionMass = (activeSensorCount >= 10);
 
   // To avoid false positives on corners, a junction requires the extremes AND the center to see the line
   bool leftExtreme = (sensorValues[0] > JUNCTION_THRESHOLD) && (sensorValues[1] > JUNCTION_THRESHOLD) && (sensorValues[2] > JUNCTION_THRESHOLD);
