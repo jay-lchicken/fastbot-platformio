@@ -12,18 +12,18 @@ constexpr uint8_t RIGHT_MOTOR_FORWARD_PWM = 1;
 constexpr uint8_t RIGHT_MOTOR_REVERSE_PWM = 33;
 
 constexpr int MOTOR_PWM_MAX = 255;
-constexpr int BASE_SPEED = 230;
+constexpr int BASE_SPEED = 255;
 constexpr int SEARCH_SPEED = 235;
 
 // PID Tuning
-constexpr float KP = 0.23;
-constexpr float KI = 0.005;
-constexpr float KD = 1.3;
+constexpr float KP = 0.12;
+constexpr float KI = 0.001;
+constexpr float KD = 1;
 
 constexpr int LINE_CENTER = (SENSOR_COUNT - 1) * 1000 / 2;
 constexpr int LINE_PRESENT_SUM_THRESHOLD = 600;
 constexpr int LINE_PRESENT_PEAK_THRESHOLD = 300;
-constexpr int ERROR_DEADBAND = 300;
+constexpr int ERROR_DEADBAND = 50;
 
 // OPTIMIZATION: Allowed to be much higher so the inner wheel can reverse natively in PID
 constexpr int MAX_CORRECTION = 500;
@@ -35,7 +35,7 @@ constexpr int CAL_DATA_SIZE = 1 + SENSOR_COUNT * sizeof(uint16_t) * 2;
 
 // --- JUNCTION CONFIGURATION ---
 // 0 = Turn Left, 1 = Turn Right, 2 = Go Straight
-constexpr int JUNCTION_1_DIR = 1;
+constexpr int JUNCTION_1_DIR = 0;
 constexpr int JUNCTION_2_DIR = 1;
 constexpr int JUNCTION_3_DIR = 2;
 
@@ -275,7 +275,7 @@ void loop() {
 
   // 2. A normal curve covers ~4-6 sensors. A junction covers a wide horizontal band.
   // Adjust this threshold (e.g., 7, 8, or 9) depending on your line thickness.
-  bool isJunctionMass = (activeSensorCount >= 12);
+  bool isJunctionMass = (activeSensorCount >= 8);
 
   // To avoid false positives on corners, a junction requires the extremes AND the center to see the line
   bool leftExtreme = (sensorValues[0] > JUNCTION_THRESHOLD) && (sensorValues[1] > JUNCTION_THRESHOLD) && (sensorValues[2] > JUNCTION_THRESHOLD);
@@ -310,9 +310,36 @@ void loop() {
     position = weightedSum / sum;
     lastPosition = position;
   } else {
-    // OPTIMIZATION: If the line is temporarily lost, this sets a massive error
-    // so the PID smoothly spins backward to catch it, keeping forward momentum alive.
-    position = lastLineWasRight ? ((SENSOR_COUNT - 1) * 1000) : 0;
+    // --- LINE LOST RECOVERY ---
+    // Spin in the direction we last saw the line
+    int leftSpin = lastLineWasRight ? SEARCH_SPEED : -SEARCH_SPEED;
+    int rightSpin = lastLineWasRight ? -SEARCH_SPEED : SEARCH_SPEED;
+
+    setMotors(leftSpin, rightSpin);
+
+    // Keep spinning in a tight loop UNTIL the middle sensors see the line
+    while (true) {
+      qtr.readCalibrated(sensorValues);
+
+      // Check sensors 6, 7 (dead center), and 8
+      if (sensorValues[6] > LINE_PRESENT_PEAK_THRESHOLD ||
+          sensorValues[7] > LINE_PRESENT_PEAK_THRESHOLD ||
+          sensorValues[8] > LINE_PRESENT_PEAK_THRESHOLD) {
+        break; // Line found by the middle sensors!
+          }
+    }
+
+    // ACTIVE BRAKING: Briefly counter-steer to kill the spinning momentum
+    // so it doesn't overshoot the line it just found.
+    setMotors(-leftSpin, -rightSpin);
+    delay(20);
+
+    // Reset PID variables so it accelerates cleanly forward without jerking
+    integral = 0.0f;
+    hasFilteredError = false;
+    lastError = 0;
+
+    return; // Restart the loop immediately with the line now centered
   }
 
   if (millis() - lastPrintTime >= PRINT_INTERVAL_MS) {
@@ -342,15 +369,14 @@ void loop() {
   float derivative = filteredError - lastError;
   lastError = filteredError;
 
-  // --- DYNAMIC KP MULTIPLIER (HELLA SHARP TURN) ---
+  // --- DYNAMIC KP MULTIPLIER ---
   int absError = abs(error);
   float kpm = 1.0f; // Default multiplier for straight lines
 
-  if (absError > 1500) {
-    // Ramp up to a massive 5.0x multiplier instantly when the line leaves the center.
-    // This violently snaps the motors to max differential.
-    long kpm_mapped = map(absError, 500, 7000, 10, 40);
-    kpm_mapped = constrain(kpm_mapped, 10, 40);
+  if (absError > 600) { // Changed from 1500: Reacts to mild curves much sooner
+    // Start gently increasing the multiplier, maxing out at 4.0x for extreme hairpins
+    long kpm_mapped = map(absError, 600, 7000, 12, 40);
+    kpm_mapped = constrain(kpm_mapped, 12, 40); // 1.2x at mild curves, up to 4.0x
     kpm = kpm_mapped / 10.0f;
   }
 
@@ -361,20 +387,8 @@ void loop() {
   if (correction > 1000) correction = 1000;
   if (correction < -1000) correction = -1000;
 
-  // --- DYNAMIC FORWARD CREEP (REVERSE PIVOT) ---
-  int currentBaseSpeed = BASE_SPEED;
-
-  if (absError > 500) {
-    // The secret to a perfectly tight hairpin: Active Reversing.
-    // This maps the base speed from 255 down to -100!
-    // Instead of drifting forward, the robot physically yanks its center of gravity
-    // backward while spinning on a dime, making it physically impossible to swing wide.
-    currentBaseSpeed = map(absError, 500, 7000, BASE_SPEED, -100);
-    currentBaseSpeed = constrain(currentBaseSpeed, -100, BASE_SPEED);
-  }
-
-  int leftSpeed = currentBaseSpeed + correction;
-  int rightSpeed = currentBaseSpeed - correction;
+  int leftSpeed = BASE_SPEED + correction;
+  int rightSpeed = BASE_SPEED - correction;
 
   leftSpeed = constrain(leftSpeed, -MOTOR_PWM_MAX, MOTOR_PWM_MAX);
   rightSpeed = constrain(rightSpeed, -MOTOR_PWM_MAX, MOTOR_PWM_MAX);
